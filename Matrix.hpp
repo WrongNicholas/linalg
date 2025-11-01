@@ -5,64 +5,118 @@
 #include <vector>
 #include <span>
 #include <iostream>
+#include <stdexcept>
 
 // A Matrix represented as a one-dimensional vector, column-major.
-// Can be accessed row-major through helper methods.
-// REQUIRES PROPER INITIALIZATION! (might need to add some sort of throw or check for initialization)
 template <typename T>
 class Matrix {
 private:
-  const size_t rows;   // Number of rows in the matrix
-  const size_t cols;   // Number of columns in the matrix
-  std::vector<T> data; // Matrix stored as a one-dimensional vector
+  size_t _rows;
+  size_t _cols;
+  std::vector<T> _data;
 public:
   // Constructors
-  Matrix(const size_t rown, const size_t cols);                                     // Constructs an 'empty'  m * n matrix
-  Matrix(std::size_t rows, std::size_t cols, std::initializer_list<T> initializer); // Constructs an m * n matrix using an initializer list
+  Matrix(const size_t rows, const size_t cols);
+  Matrix(std::size_t rows, std::size_t cols, std::initializer_list<T> initializer);
   // ** ADD CONSTRUCTOR FROM VEC OF VEC AND initializer_list of VEC
 
-  // Public helpers
-  // need const/nonconst, also figure out required refs.
-  std::span<T> col_at(int j);                                                       // returns a span of a specific col
-  std::vector<T> row_at(size_t i);                                                  // returns a vector of a specific row
+  // Accessors
+  size_t rows() const noexcept { return _rows; }
+  size_t cols() const noexcept { return _cols; }
 
-  void print() const;                                                               // Prints rows
+  // Operator overloads
+  T& operator()(size_t r, size_t c);
+  const T& operator()(size_t r, size_t c) const;
+
+  // Public helpers
+  inline T& at(size_t r, size_t c);
+  inline const T& at(size_t r, size_t c) const;
+
+  std::span<T> col_at(size_t c);
+  std::span<const T> col_at(size_t c) const;
+
+  // std::vector<T> row_at(size_t r);
+
+  // Debugging Utility
+  void print() const;
+  void print_col(size_t c) const;
 };
 
+// Constructors
 template <typename T>
-Matrix<T>::Matrix(size_t rows, size_t cols) : rows(rows), cols(cols), data(rows * cols) { }
-
-template <typename T>
-Matrix<T>::Matrix(std::size_t rows, std::size_t cols, std::initializer_list<T> initializer) : rows(rows), cols(cols), data(initializer) { }
-
-template <typename T>
-std::span<T> Matrix<T>::col_at(int col)
+Matrix<T>::Matrix(size_t rows, size_t cols) : _rows(rows), _cols(cols), _data(rows * cols) 
 {
-  return std::span(&data[col * rows], rows);
+  if (rows == 0 || cols == 0) throw std::invalid_argument("Matrix dimensions cannot be zero.");
 }
 
 template <typename T>
-std::vector<T> Matrix<T>::row_at(size_t row)
+Matrix<T>::Matrix(std::size_t rows, std::size_t cols, std::initializer_list<T> initializer) : _rows(rows), _cols(cols), _data(initializer) 
+{ 
+  if (rows == 0 || cols == 0) throw std::invalid_argument("Matrix dimensions cannot be zero.");
+  if (initializer.size() != rows * cols) throw std::invalid_argument("Initializer list does not match matrix dimensions.");
+}
+
+// Operator Overloads
+template <typename T>
+T& Matrix<T>::operator()(size_t r, size_t c)
 {
-  std::vector<T> vec;
-  vec.reserve(this->cols);
-  for (size_t col = 0; col < this->cols; ++col)
-  {
-    vec.push_back(this->data[col * this->rows + row]);
+  return at(r,c);
+}
+
+template <typename T>
+const T& Matrix<T>::operator()(size_t r, size_t c) const
+{
+  return at(r,c);
+}
+
+// Helpers
+template <typename T>
+inline T& Matrix<T>::at(size_t r, size_t c)
+{
+  if (r >= _rows  || c >= _cols ) throw std::out_of_range("Requested position outside of matrix dimensions.");
+  return _data[c * _rows + r];
+}
+
+template <typename T>
+inline const T& Matrix<T>::at(size_t r, size_t c) const
+{
+  if (r >= _rows  || c >= _cols ) throw std::out_of_range("Requested position outside of matrix dimensions.");
+  return _data[c * _rows + r];
+}
+
+template <typename T>
+std::span<T> Matrix<T>::col_at(size_t c)
+{
+  if (c >= _cols ) throw std::out_of_range("Requested position outside of matrix dimensions.");
+  return std::span(&_data[c * _rows], _rows);
+}
+
+template <typename T>
+std::span<const T> Matrix<T>::col_at(size_t c) const
+{
+  if (c >= _cols ) throw std::out_of_range("Requested position outside of matrix dimensions.");
+  return std::span(&_data[c * _rows], _rows);
+}
+
+template <typename T>
+void Matrix<T>::print() const
+{
+  for (std::size_t r = 0; r < _rows; ++r) {
+      for (std::size_t c = 0; c < _cols; ++c) {
+          std::cout << at(r, c);
+          if (c + 1 < _cols) std::cout << ", ";
+      }
+      std::cout << '\n';
   }
-
-  return vec;
 }
 
 template <typename T>
-void Matrix<T>::print() const {
-    for (std::size_t r = 0; r < rows; ++r) {
-        for (std::size_t c = 0; c < cols; ++c) {
-            std::cout << data[c * rows + r];
-            if (c + 1 < cols) std::cout << ", ";
-        }
-        std::cout << '\n';
-    }
+void Matrix<T>::print_col(size_t c) const
+{
+  for (const T& element : col_at(c))
+  {
+    std::cout << element << std::endl;
+  }
 }
 
 #endif
