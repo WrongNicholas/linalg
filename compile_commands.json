@@ -1,0 +1,19 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/g++",
+      "-c",
+      "-std=c++23",
+      "-Wall",
+      "-Wextra",
+      "-Wpedantic",
+      "-O2",
+      "-o",
+      "main",
+      "main.cpp"
+    ],
+    "directory": "/Users/wojnar/Projects/linalg",
+    "file": "/Users/wojnar/Projects/linalg/main.cpp",
+    "output": "/Users/wojnar/Projects/linalg/main"
+  }
+]
