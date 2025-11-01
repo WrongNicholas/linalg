@@ -32,12 +32,32 @@ public:
   inline T& at(size_t r, size_t c);
   inline const T& at(size_t r, size_t c) const;
 
+  /**
+   * @brief Returns a span representing the specified column.
+   *
+   * @param c The zero-based index of the column.
+   * @return A std::span<T> providing access to the elements of the column.
+   *
+   * @throws std::out_of_range If the column index is outside the valid range.
+   */
   std::span<T> col_at(size_t c);
+
+  /**
+   * @brief Returns a const span representing the specified column.
+   *
+   * @param c The zero-based index of the column.
+   * @return A std::span<const T> providing access to the elements of the column.
+   *
+   * @throws std::out_of_range If the column index is outside the valid range.
+   */
   std::span<const T> col_at(size_t c) const;
 
   // std::vector<T> row_at(size_t r);
 
   // Debugging Utility
+  /** 
+   * @brief
+   */
   void print() const;
   void print_col(size_t c) const;
 };

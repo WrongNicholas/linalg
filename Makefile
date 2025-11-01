@@ -24,8 +24,8 @@ build:
 	@echo "$(CYAN)Configuring and building project... $(RESET)"
 	@$(CMAKE) -S . -B $(BUILD_DIR) -DCMAKE_BUILD_TYPE=$(BUILD_TYPE)
 	@$(CMAKE) --build $(BUILD_DIR)
-	@echo "$(GREEN)Build successful.$(RESET)" || \
-	( echo "$(RED)Build failed.$(RESET)"; exit 1 )
+	@echo "$(GREEN)Build successful!$(RESET)" || \
+	( echo "$(RED)Build failed!$(RESET)"; exit 1 )
 
 # Run all tests
 .PHONY: test
@@ -36,18 +36,27 @@ test: build
 # Clean build directory
 .PHONY: clean
 clean:
-	@echo "$(YELLOW)Cleaning build directory...$(RESET)"
 	@rm -rf $(BUILD_DIR)
+	@echo "$(YELLOW)Build directory cleaned.$(RESET)"
 
-# Rebuild from scratch
-.PHONY: rebuild
-rebuild: clean build
+# Build docs - use VERBOSE=1 for loud
+.PHONY: docs
+docs: build
+	@echo "$(BLUE)Building docs...$(RESET)"
+ifeq ($(VERBOSE),1)
+	@cmake --build $(BUILD_DIR) --target doc
+else
+	@cmake --build $(BUILD_DIR) --target doc > /dev/null 2>&1 && \
+	echo "$(GREEN)Docs build successful!$(RESET)" || \
+	( echo "$(RED)Docs build failed!$(RESET)\n  $(YELLOW)Try running with VERBOSE=1 to see full output.$(RESET)"; exit 1 )
+endif
 
+# Displays help command
 .PHONY: help
 help:
 	@echo "$(BOLD)Available Commands:$(RESET)"
 	@echo "  $(CYAN)make build$(RESET)     - Build the project"
 	@echo "  $(MAGENTA)make test$(RESET)      - Run all tests"
 	@echo "  $(YELLOW)make clean$(RESET)     - Remove the build directory"
-	@echo "  $(BLUE)make rebuild$(RESET)   - Clean and build"
+	@echo "  $(BLUE)make docs$(RESET)      - Build docs"
 	@echo "  $(GREEN)make help$(RESET)      - Show this help message"
