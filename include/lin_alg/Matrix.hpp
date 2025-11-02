@@ -3,12 +3,12 @@
 #ifndef WOJI_MATRIX_HPP
 #define WOJI_MATRIX_HPP
 
+#include <algorithm>
 #include <initializer_list>
 #include <vector>
 #include <span>
 #include <iostream>
 #include <stdexcept>
-#include <cstddef>
 
 /**
  * @brief A row-major matrix stored internally as a one-dimensional std::vector.
@@ -31,7 +31,22 @@ private:
   /** Contiguous storage in row-major order. */
   std::vector<T> _data;
 
+
 public:
+  /**
+   * @brief Represents the result of a Reduced Row Echelon Form operation.
+   *
+   * Contains both the transformed matrix and additional data needed to compute 
+   * a determinant.
+   *
+   * @tparam T Element type of the matrix.
+   */
+  struct RrefResult {
+    Matrix<T> m;
+    size_t swaps = 0;
+    T scale_prod = T{1};
+  };
+
   // ==============================================================================
   // Constructors
   // ==============================================================================
@@ -97,7 +112,7 @@ public:
       size_t r = 0;
       for (const auto& element : col)
       {
-        m(r, c) = element;
+        m.at(r, c) = element;
         ++r;
       }
       ++c;
@@ -114,7 +129,10 @@ public:
    * @note Performs a deep copy of all elements, preserving the original matrix dimensions.
    *
    */
-  Matrix(const Matrix<T>& other);
+  Matrix(const Matrix<T>& other) = default;
+  Matrix(Matrix&&) noexcept = default;
+  Matrix& operator=(const Matrix&) = default;
+  Matrix& operator=(Matrix&&) noexcept = default;
 
   // ==============================================================================
   // Accessors
@@ -130,7 +148,7 @@ public:
   const std::vector<T>& data() const noexcept { return _data; }
 
   // ==============================================================================
-  // Operator Overloads
+  // Arithmetic
   // ==============================================================================
   
   /**
@@ -153,6 +171,14 @@ public:
   Matrix<T> operator*(const T& scalar) const;
 
   /**
+   * @brief Multiplies every element of this matrix by a scalar in place.
+   *
+   * @param scalar The scalar value to multiply by.
+   * @return Reference to this matrix after scaling.
+   */
+  Matrix<T>& operator*=(const T& scalar);
+
+  /**
    * @brief Adds this matrix to another matrix and returns the result.
    *
    * @param other The matrix to add to this matrix.
@@ -163,6 +189,20 @@ public:
    */
   Matrix<T> operator+(const Matrix<T>& other) const;
 
+  /**
+   * @brief Adds another matrix to this matrix in place.
+   *
+   * @param other The matrix to add.
+   * @return Reference to this matrix after addition.
+   *
+   * @throws std::invalid_argument If the matricies have different dimensions.
+   */
+  Matrix<T>& operator+=(const Matrix<T>& other);
+
+  // ==============================================================================
+  // Operator Overloads
+  // ==============================================================================
+  
   /**
    * @brief Checks whether this matrix is equal to another matrix.
    *
@@ -179,31 +219,15 @@ public:
    */
   bool operator!=(const Matrix<T>& other) const;
 
+
   // ==============================================================================
   // Element access
   // ==============================================================================
-  
-  /**
-   * @brief Returns a reference to the element at (r, c).
-   *
-   * @param r Zero-based row index.
-   * @param c Zero-based column index.
-   * @return Reference to the element at (r, c).
-   *
-   * @throws std::out_of_range If @p r or @p c is outside the valid range.
-   */
-  T& operator()(size_t r, size_t c);
 
   /**
-   * @brief Returns a const reference to the element at (r, c).
    *
-   * @param r Zero-based row index.
-   * @param c Zero-based column index.
-   * @return Const reference to the element at (r, c).
-   *
-   * @throws std::out_of_range If @p r or @p c is outside the valid range.
    */
-  const T& operator()(size_t r, size_t c) const;
+  std::span<T> operator[](int i);
 
   /**
    * @brief Returns a reference to the element at (r, c).
@@ -268,9 +292,10 @@ public:
   void swap_rows(size_t r1, size_t r2);
 
   /**
-   * @brief Swaps two rows of the matrix in place.
+   * @brief Scales a row.
    *
    * @param r Zero-based index of the row to scale.
+   * @param scalar Scalar value to multiply @p r by.
    *
    * @throws std::out_of_range If @p r is outside the valid row range.
    */
@@ -294,10 +319,34 @@ public:
   // ==============================================================================
 
   /**
+   * @brief Computes the Reduced Row Echelon Form (RREF) while recording values relating
+   * to row operations.
+   *
+   * Similar to `rref()`, but returns additional information.
+   *
+   * @returns An `RrefResult<T>` struct, which contains:
+   *  - `m`: The RREF of this matrix.
+   *  - `swaps`: The number of row swaps performed.
+   *  - `scale_prod`: The cumulative product of scaling factors.
+   *
+   *  @note This operation requires that the element type @p T supports:
+   *  - Default initialization (i.e., @c T{} produces a valid zero value).
+   *  - Equality comparison.
+   *  - Arithmetic operations.
+   *  - Constructions from literals (i.e., @c T{1}).
+   *
+   * @warning Usage of floating types such as @c double or @c float are recommended,
+   * as division of integral types such as @c int may yield truncated results.
+   *  
+   */
+  RrefResult rref_stats() const;
+
+  /**
    * @brief Computes the Reduced Row Echelon Form (RREF) of the matrix.
    *
    * This operation performs a sequence of elementary row operations to reduce the
-   * matrix into its canonical RREF form.
+   * matrix into its canonical RREF form. Each pivot is normalized to 1 and used
+   * to eliminate all nonzero elements in its column.
    *
    * @returns A new Matrix<T> containing the RREF of this matrix.
    *
@@ -311,8 +360,26 @@ public:
    * as division of integral types such as @c int may yield truncated results.
    *
    * @snippet tests/test_matrix.cpp rref_example
+   *
+   * @see rref_stats()
    */
   Matrix<T> rref() const;
+
+  /**
+   * @brief Computes the determinant of a square matrix.
+   *
+   * @return The determinant of the matrix.
+   *
+   * @throws std::invalid_argument If the matrix is not square.
+   *
+   * @note The determinant is computed using Gaussian elimination through a RREF routine.
+   *
+   * @warning For best accuracy, use floating-point element types such as @c double or
+   *          @c float. Integral element types may yield truncated due to integer division.
+   *
+   * @see rref_stats()
+   */
+  T det() const;
 
   // ==============================================================================
   // Printing Utility
@@ -354,12 +421,6 @@ Matrix<T>::Matrix(std::initializer_list<std::initializer_list<T>> initializer)
   }
 }
 
-template <typename T>
-Matrix<T>::Matrix(const Matrix<T>& other) : _rows(other.rows()), _cols(other.cols()), _data(other.data())
-{
-
-}
-
 // Operator Overloads
 template <typename T>
 Matrix<T> Matrix<T>::operator*(const Matrix<T>& other) const
@@ -377,14 +438,13 @@ Matrix<T> Matrix<T>::operator*(const Matrix<T>& other) const
       T sum{};
       for (size_t k = 0; k < cols(); ++k)
       {
-        sum += at(i, k) * other.at(k, j);
+        sum += _data[i * _cols + k] * other._data[k * other._cols + j];
       }
-      product(i, j) = sum;
+      product._data[i * product._cols + j] = sum;
     }
   }
   return product;
 }
-
 template <typename T>
 Matrix<T> Matrix<T>::operator*(const T& scalar) const
 {
@@ -397,6 +457,13 @@ Matrix<T> Matrix<T>::operator*(const T& scalar) const
   }
 
   return product;
+}
+
+template <typename T>
+Matrix<T>& Matrix<T>::operator*=(const T& scalar)
+{
+  for (auto& x : _data) x *= scalar;
+  return *this;
 }
 
 template <typename T>
@@ -418,30 +485,34 @@ Matrix<T> Matrix<T>::operator+(const Matrix<T>& other) const
 }
 
 template <typename T>
+Matrix<T>& Matrix<T>::operator+=(const Matrix<T>& other)
+{
+  if (_rows != other._rows || _cols != other._cols) throw std::invalid_argument("Matrix sizes are mismatched!");
+
+  for (size_t idx = 0; idx < _data.size(); ++idx)
+    _data[idx] += other._data[idx];
+  return *this;
+}
+
+template <typename T>
 bool Matrix<T>::operator==(const Matrix<T>& other) const
 {
-  return data() == other.data();
+  return _rows == other._rows && _cols == other._cols && _data == other._data;
 }
 
 template <typename T>
 bool Matrix<T>::operator!=(const Matrix<T>& other) const
 {
-  return data() != other.data();
-}
-
-template <typename T>
-T& Matrix<T>::operator()(size_t r, size_t c)
-{
-  return at(r,c);
-}
-
-template <typename T>
-const T& Matrix<T>::operator()(size_t r, size_t c) const
-{
-  return at(r,c);
+  return !(*this == *other);
 }
 
 // Helpers
+template <typename T>
+std::span<T> Matrix<T>::operator[](int i)
+{
+  return row_at(i);
+}
+
 template <typename T>
 inline T& Matrix<T>::at(size_t r, size_t c)
 {
@@ -499,6 +570,8 @@ void Matrix<T>::scale_row(size_t r, const T& scalar)
 template <typename T>
 void Matrix<T>::add_row(size_t r1, size_t r2, const T& scalar)
 {
+  if (r1 >= rows() || r2 >= rows()) throw std::out_of_range("Requested position outside of matrix dimensions.");
+
   auto row1_it = data().begin() + r1 * cols();
   auto row1_end = data().begin() + r1 * cols() + cols();
 
@@ -515,9 +588,12 @@ void Matrix<T>::add_row(size_t r1, size_t r2, const T& scalar)
 
 // Linear Algebra Utility
 template <typename T>
-Matrix<T> Matrix<T>::rref() const
+Matrix<T>::RrefResult Matrix<T>::rref_stats() const
 {
+  // NOTE: POSSIBLY ADD STATIC_ASSERT TO FORCE FLOATINZG POINT
   Matrix<T> m(*this);
+  size_t swaps = 0;
+  T scale_prod = T{1};
 
   size_t c = 0;
   
@@ -527,7 +603,7 @@ Matrix<T> Matrix<T>::rref() const
 
     // Find a row `r` with non-zero in column[c]
     size_t i = r;
-    while (i < m.rows() && m(i, c) == T{})
+    while (i < m.rows() && m.at(i, c) == T{})
       ++i;
 
     // Move to next col if no pivot found
@@ -539,23 +615,60 @@ Matrix<T> Matrix<T>::rref() const
     }
 
     // Swap pivot row up
-    if (i != r) m.swap_rows(i, r);
-    
-    const T pivot_val = m(r, c);
-    m.scale_row(r, T{1} / pivot_val);
+    if (i != r) 
+    { 
+      m.swap_rows(i, r);
+      ++swaps;
+    }
+
+    const T pivot_val = m.at(r, c);
+    if (pivot_val != T{1}) {
+      m.scale_row(r, T{1} / pivot_val);
+      scale_prod *= pivot_val;
+    }
 
     // Eliminate column in other rows
-    for (size_t rows = 0; rows < m.rows(); ++rows)
+    for (size_t row_idx = 0; row_idx < m.rows(); ++row_idx)
     {
-      if (rows == r) continue;
-      const T f = m(rows, c);
-      if (f != T{}) m.add_row(r, rows, -f);
+      if (row_idx == r) continue;
+      const T f = m.at(row_idx, c);
+      if (f != T{}) m.add_row(r, row_idx, -f);
     }
 
     // Now move on to next column
     ++c;
   }
-  return m;
+  return RrefResult{std::move(m), swaps, scale_prod};
+}
+
+template <typename T>
+Matrix<T> Matrix<T>::rref() const
+{
+  return rref_stats().m;
+}
+
+template <typename T>
+T Matrix<T>::det() const
+{
+  if (rows() != cols()) throw std::invalid_argument("Finding a determinant requires a square matrix.");
+  if (rows() == 1) return data()[0];
+  
+  // RrefResult represents the collected result of performing an rref operation
+  RrefResult res = rref_stats();
+  T det = T{1};
+
+  // Compute determinant by calculating product of diagonal of rref matrix
+  for (size_t idx = 0; idx < rows(); ++idx)
+    det *= res.m.at(idx, idx);
+
+  // Then invert if num of swaps is not divisible by 2
+  // (we're flipping for every row swap)
+  det = res.swaps % 2 ? -det : det;
+
+  // Then multiply by collected row scalings
+  det *= res.scale_prod;
+
+  return det;
 }
 
 template <typename T>

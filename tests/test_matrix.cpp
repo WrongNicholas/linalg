@@ -2,6 +2,10 @@
 #include <lin_alg/Matrix.hpp>
 #include <stdexcept>
 
+// ==============================================================================
+// Constructor Tests
+// ==============================================================================
+
 TEST(MatrixTest, ConstructsWithDimensions_DefaultInitializesElements)
 {
   Matrix<std::string> m(1, 2);
@@ -9,8 +13,8 @@ TEST(MatrixTest, ConstructsWithDimensions_DefaultInitializesElements)
   EXPECT_EQ(m.rows(), 1u);
   EXPECT_EQ(m.cols(), 2u);
 
-  EXPECT_EQ(m(0,0), ""); 
-  EXPECT_EQ(m(0,1), ""); 
+  EXPECT_EQ(m[0][0], ""); 
+  EXPECT_EQ(m[0][1], ""); 
 }
 
 TEST(MatrixTest, ConstructsWithDimensions_ZeroRowsOrCols_Throws)
@@ -26,12 +30,12 @@ TEST(MatrixTest, ConstructsFromFlatInitializer_RowMajorOrder)
   // 2 3
 
   // row 0
-  EXPECT_EQ(m(0,0), "0"); 
-  EXPECT_EQ(m(0,1), "1"); 
+  EXPECT_EQ(m.at(0,0), "0"); 
+  EXPECT_EQ(m.at(0,1), "1"); 
 
   // row 1
-  EXPECT_EQ(m(1,0), "2"); 
-  EXPECT_EQ(m(1,1), "3"); 
+  EXPECT_EQ(m.at(1,0), "2"); 
+  EXPECT_EQ(m.at(1,1), "3"); 
 
   EXPECT_EQ(m.rows(), 2u);
   EXPECT_EQ(m.cols(), 2u);
@@ -51,28 +55,19 @@ TEST(MatrixTest, ConstructsFromFlatInitializer_WithZeroDimension_Throws)
 
 TEST(MatrixTest, ConstructsFromColumnsInitializer_InnerAsRows)
 {
-  Matrix<std::string> m({
-      {"0", "1", "2"},
-      {"3", "4", "5"}
-  });
-  // Looks like:
+  Matrix<std::string> m({ {"0", "1", "2"}, {"3", "4", "5"} });
   // 0 1 2
   // 3 4 5
 
   EXPECT_EQ(m.rows(), 2u);
   EXPECT_EQ(m.cols(), 3u);
 
-  // column 0
-  EXPECT_EQ(m(0,0), "0"); 
-  EXPECT_EQ(m(1,0), "3"); 
-  
-  // column 1
-  EXPECT_EQ(m(0,1), "1"); 
-  EXPECT_EQ(m(1,1), "4"); 
-
-  // column 2
-  EXPECT_EQ(m(0,2), "2");
-  EXPECT_EQ(m(1,2), "5");
+  EXPECT_EQ(m.at(0,0), "0"); 
+  EXPECT_EQ(m.at(1,0), "3"); 
+  EXPECT_EQ(m.at(0,1), "1"); 
+  EXPECT_EQ(m.at(1,1), "4"); 
+  EXPECT_EQ(m.at(0,2), "2");
+  EXPECT_EQ(m.at(1,2), "5");
 }
 
 TEST(MatrixTest, ConstructsFromRowsInitializer_MisalignedRows_Throws)
@@ -83,269 +78,6 @@ TEST(MatrixTest, ConstructsFromRowsInitializer_MisalignedRows_Throws)
 TEST(MatrixTest, ConstructsFromRowsInitializer_EmptyOuterList_Throws)
 {
   EXPECT_THROW(Matrix<std::string> m({}), std::invalid_argument);
-}
-
-TEST(MatrixTest, MultiplicationOverload)
-{
-  // 2 x 3 matrix
-  Matrix<int> A = { 
-    {0, 2, 4},
-    {1, 3, 5}
-  };
-  // 0 2 4
-  // 1 3 5
-  
-  // 3 x 2 matrix
-  Matrix<int> B = {
-    {6, 9},
-    {7, 10},
-    {8, 11}
-  };
-  // 6 9
-  // 7 10
-  // 8 11
-
-  Matrix<int> expected = {
-    {46, 64},
-    {67, 94}
-  };
-  // 46 64
-  // 67 94
-  
-  Matrix<int> actual = A*B;
-
-  ASSERT_TRUE(actual == expected);
-}
-
-TEST(MatrixTest, MultiplicationOverload_MismatchedSizes_Throws)
-{
-  // 2 x 3 matrix
-  Matrix<int> A = { 
-    {0,2,4},
-    {1,3,5}
-  };
-  // 0 2 4
-  // 1 3 5
-  
-  // 3 x 2 matrix
-  Matrix<int> B = {
-    {6, 9},
-    {7,10},
-  };
-  // 6 9
-  // 7 10
-
-  ASSERT_THROW(Matrix<int> actual = A*B, std::invalid_argument);
-
-}
-
-TEST(MatrixTest, AdditionOverload)
-{
-  // 2 x 3 matrix
-  Matrix<int> A = { 
-    {0,1}, 
-    {2,3},
-    {4,5}
-  };
-  // 0 1
-  // 2 3
-  // 4 5
-  
-  // 2 x 3 matrix
-  Matrix<int> B = { 
-    {6, 7}, 
-    {8, 9},
-    {10,11}
-  };
-  // 6 7
-  // 8 9
-  // 10 11
-
-  Matrix<int> expected = {
-    {6, 8}, 
-    {10,12},
-    {14,16}
-  };
-  // 6 8
-  // 10 12
-  // 14 16
-
-  Matrix<int> actual = A+B;
-
-  ASSERT_TRUE(actual == expected);
-}
-
-TEST(MatrixTest, AdditionOverload_MismatchedSizes_Throws)
-{
-  // 2 x 3 matrix
-  Matrix<int> A = { 
-    {0,1}, 
-    {2,3},
-    {4,5}
-  };
-  // 0 1
-  // 2 3
-  // 4 5
-  
-  // 2 x 3 matrix
-  Matrix<int> B = { 
-    {6, 7}, 
-    {8, 9}
-  };
-  // 6 7
-  // 8 9
-
-  ASSERT_THROW(Matrix<int> actual = A+B, std::invalid_argument);
-}
-
-TEST(MatrixTest, MultiplicationOverload_Scalar)
-{
-  // 2 x 3 matrix
-  Matrix<int> A = { 
-    {0,1}, 
-    {2,3},
-    {4,5}
-  };
-  // 0 1
-  // 2 3
-  // 4 5
-
-  int scalar = 10;
-
-  Matrix<int> expected = {
-    {0,10}, 
-    {20,30},
-    {40,50}
-  };
-
-  Matrix<int> actual = A*scalar;
-
-  ASSERT_TRUE(actual == expected);
-}
-
-TEST(MatrixTest, RowSwap)
-{
-  // 2 x 3 matrix
-  Matrix<int> A = { 
-    {0,1}, 
-    {2,3},
-    {4,5}
-  };
-  // 0 1
-  // 2 3
-  // 4 5
-
-  A.swap_rows(0, 1);
-  // 2 3
-  // 0 1
-  // 4 5
-
-  A.swap_rows(1, 2);
-  // 2 3
-  // 4 5
-  // 0 1
-
-  A.swap_rows(0, 1);
-  // 4 5
-  // 2 3
-  // 0 1
-
-  Matrix<int> expected = { 
-    {4,5},
-    {2,3},
-    {0,1} 
-  };
-
-  ASSERT_TRUE(expected == A);
-}
-
-TEST(MatrixTest, RowSwap_OutsideBounds_Throws)
-{
-  // 2 x 3 matrix
-  Matrix<int> A = { 
-    {0,1}, 
-    {2,3},
-    {4,5}
-  };
-  // 0 1
-  // 2 3
-  // 4 5
-
-  ASSERT_THROW(A.swap_rows(0, 3), std::out_of_range);
-}
-
-TEST(MatrixTest, RowScale)
-{
-  // 2 x 3 matrix
-  Matrix<int> A = { 
-    {0,1}, 
-    {2,3},
-    {4,5}
-  };
-  // 0 1
-  // 2 3
-  // 4 5
-
-  A.scale_row(0, 10);
-  // 0 10
-  // 2 3
-  // 4 5
-
-  A.scale_row(1, 5);
-  // 0 10
-  // 10 15
-  // 4 5
-
-  A.scale_row(2, 2);
-  // 0 10
-  // 10 15
-  // 8 10
-
-  Matrix<int> expected = { 
-    {0,10}, 
-    {10,15},
-    {8,10}
-  };
-
-  ASSERT_TRUE(A == expected);
-}
-
-TEST(MatrixTest, RowAddition)
-{
-  // 2 x 3 matrix
-  Matrix<int> A = { 
-    {0,1}, 
-    {2,3},
-    {4,5}
-  };
-  // 0 1
-  // 2 3
-  // 4 5
-
-  // Add row 0, multiplied by a scalar of 10, to row 1
-  A.add_row(0, 1, 10);
-  // 0 1
-  // 2 13
-  // 4 5
-
-  // Add row 2, multiplied by a scalar of 2, to row 0
-  A.add_row(2, 0, 2);
-  // 8 11
-  // 2 13
-  // 4 5
-
-  // Add row 1, multiplied by a scalar of 0, to row 0
-  A.add_row(1, 0, 0);
-  // 8 11
-  // 2 13
-  // 4 5
-  Matrix<int> expected = { 
-    {8, 11}, 
-    {2, 13},
-    {4, 5}
-  };
-
-  ASSERT_TRUE(A == expected);
 }
 
 TEST(MatrixTest, FromColumnFactory)
@@ -367,7 +99,172 @@ TEST(MatrixTest, FromColumnFactory)
   ASSERT_TRUE(m == expected);
 }
 
-TEST(MatrixTest, rref)
+// ==============================================================================
+// Copy, Access, Span
+// ==============================================================================
+
+TEST(MatrixTest, CopyConstructor_CreatesDeepCopy)
+{
+  Matrix<int> original = {{1,2}, {3,4}};
+  Matrix<int> copy = original;
+
+  copy.at(0, 0) = 1234;
+  EXPECT_EQ(original.at(0,0), 1);
+  EXPECT_EQ(copy.at(0,0), 1234);
+}
+
+TEST(MatrixTest, ElementAccess_OutOfRange_Throws)
+{
+  Matrix<int> m(2,2);
+  EXPECT_THROW(m.at(2,0), std::out_of_range);
+  EXPECT_THROW(m.at(0,2), std::out_of_range);
+}
+
+TEST(MatrixTest, RowAt_ReturnsCorrectSpan)
+{
+  Matrix<int> m({{1,2,3}, {4,5,6}});
+  auto row0 = m.row_at(0);
+  EXPECT_EQ(row0.size(), 3u);
+  row0[1] = 1234;
+  EXPECT_EQ(m.at(0,1), 1234);
+}
+
+// ============================================================================
+//  Arithmetic
+// ============================================================================
+
+TEST(MatrixTest, AdditionOverload)
+{
+  Matrix<int> A = { {0,1}, {2,3}, {4,5} };
+  Matrix<int> B = { {6, 7}, {8, 9}, {10,11} };
+
+  Matrix<int> expected = { {6, 8}, {10,12}, {14,16} };
+  Matrix<int> actual = A+B;
+
+  ASSERT_TRUE(actual == expected);
+}
+
+TEST(MatrixTest, AdditionOverload_MismatchedSizes_Throws)
+{
+  Matrix<int> A = { {0,1}, {2,3}, {4,5} };
+  Matrix<int> B = { {6, 7}, {8, 9} };
+  ASSERT_THROW(Matrix<int> actual = A+B, std::invalid_argument);
+}
+
+TEST(MatrixTest, AdditionOperator_ChainAddition)
+{
+  Matrix<int> A = {{1,2},{3,4}};
+  Matrix<int> B = {{5,6},{7,8}};
+  Matrix<int> C = {{1,1},{1,1}};
+  Matrix<int> expected = {{7,9}, {11,13}};
+  Matrix<int> actual = A+B+C;
+  ASSERT_TRUE(actual == expected);
+}
+
+TEST(MatrixTest, MultiplicationOverload)
+{
+  Matrix<int> A = { {0, 2, 4}, {1, 3, 5} };
+  
+  Matrix<int> B = { {6, 9}, {7, 10}, {8, 11} };
+
+  Matrix<int> expected = { {46, 64}, {67, 94} };
+  Matrix<int> actual = A*B;
+
+  ASSERT_TRUE(actual == expected);
+}
+
+TEST(MatrixTest, MultiplicationOverload_MismatchedSizes_Throws)
+{
+  Matrix<int> A = { {0,2,4}, {1,3,5} };
+  Matrix<int> B = { {6, 9}, {7,10}, };
+  ASSERT_THROW(Matrix<int> actual = A*B, std::invalid_argument);
+}
+
+TEST(MatrixTest, MatrixMultiplication_ByIdentity)
+{
+  Matrix<int> A = {{1,2},{3,4}};
+  Matrix<int> I = {{1,0},{0,1}};
+  ASSERT_TRUE((A*I) == A);
+}
+
+TEST(MatrixTest, ScalarMultiplication_ByZero)
+{
+  Matrix<int> A = {{1,2},{3,4}};
+  Matrix<int> expected = {{0,0},{0,0}};
+  ASSERT_TRUE((A*0) == expected);
+}
+
+TEST(MatrixTest, MultiplicationOverload_Scalar)
+{
+  Matrix<int> A = { {0,1}, {2,3}, {4,5} };
+  int scalar = 10;
+
+  Matrix<int> expected = { {0,10}, {20,30}, {40,50} };
+  Matrix<int> actual = A*scalar;
+
+  ASSERT_TRUE(actual == expected);
+}
+
+// ============================================================================
+//  Row Operations
+// ============================================================================
+
+TEST(MatrixTest, RowSwap)
+{
+  Matrix<int> A = { {0,1}, {2,3}, {4,5} };
+  A.swap_rows(0, 1);
+  A.swap_rows(1, 2);
+  A.swap_rows(0, 1);
+  Matrix<int> expected = { {4,5}, {2,3}, {0,1} };
+  ASSERT_TRUE(expected == A);
+}
+
+TEST(MatrixTest, RowSwap_OutsideBounds_Throws)
+{
+  Matrix<int> A = { {0,1}, {2,3}, {4,5} };
+  ASSERT_THROW(A.swap_rows(0, 3), std::out_of_range);
+}
+
+TEST(MatrixTest, ScaleRow)
+{
+  Matrix<int> A = { {0,1}, {2,3}, {4,5} };
+  A.scale_row(0, 10);
+  A.scale_row(1, 5);
+  A.scale_row(2, 2);
+  Matrix<int> expected = { {0,10}, {10,15}, {8,10} };
+  ASSERT_TRUE(A == expected);
+}
+
+TEST(MatrixTest, ScaleRow_ByZero)
+{
+  Matrix<int> A = {{1,2},{3,4}};
+  A.scale_row(0,0);
+  Matrix<int> expected = {{0,0},{3,4}};
+  ASSERT_TRUE(A == expected);
+}
+
+TEST(MatrixTest, AddRow)
+{
+  Matrix<int> A = { {0,1}, {2,3}, {4,5} };
+  A.add_row(0, 1, 10);
+  A.add_row(2, 0, 2);
+  A.add_row(1, 0, 0);
+  Matrix<int> expected = { {8, 11}, {2, 13}, {4, 5} };
+  ASSERT_TRUE(A == expected);
+}
+
+TEST(MatrixTest, AddRow_OutsideBounds_Throws)
+{
+  Matrix<int> A = {{1,2},{3,4}};
+  EXPECT_THROW(A.add_row(2,0,1), std::out_of_range);
+  EXPECT_THROW(A.add_row(0,2,1), std::out_of_range);
+}
+
+// ============================================================================
+//  Linear Algebra
+// ============================================================================
+
+TEST(MatrixTest, Rref)
 {
   //! [rref_example]
   // Construct a 3x4 augmented matrix representing a linear system:
@@ -395,4 +292,94 @@ TEST(MatrixTest, rref)
   //! [rref_example]
 
   ASSERT_TRUE(rref == expected);
+}
+
+TEST(MatrixTest, Rref_IdentityMatrixUnchanged)
+{
+  Matrix<double> I({
+    {1,0,0},
+    {0,1,0},
+    {0,0,1}
+  });
+  ASSERT_TRUE(I.rref() == I);
+}
+
+TEST(MatrixTest, Rref_UpperTriangle)
+{
+  Matrix<double> M({
+    {2,1},
+    {0,3}
+  });
+  Matrix<double> expected({
+    {1, 0},
+    {0, 1}
+  });
+  ASSERT_TRUE(M.rref() == expected);
+}
+
+TEST(MatrixTest, Determinant_TwoByTwo)
+{
+  Matrix<double> m({
+    {1, 2},
+    {3, 4}
+  });
+
+  auto actual = m.det();
+  double expected = -2;
+
+  ASSERT_EQ(actual, expected);
+}
+
+TEST(MatrixTest, Determinant_FourByFour)
+{
+  Matrix<double> m({
+      {1,-2, 1, 0},
+      {0, 2,-8, 8},
+      {5, 0,-5,10},
+      {9, -5,-5,6},
+    });
+
+  auto actual = m.det();
+  double expected = -480;
+
+  ASSERT_EQ(actual, expected);
+}
+
+TEST(MatrixTest, Determinant_Misaligned_Throws)
+{
+  
+  Matrix<double> m({
+    {1,-2, 1, 0},
+    {0, 2,-8, 8},
+    {5, 0,-5,10}
+  });
+
+  ASSERT_THROW(m.det(), std::invalid_argument);
+}
+
+TEST(MatrixTest, Determinant_OneByOne)
+{
+  Matrix<double> M({{7}});
+  EXPECT_EQ(M.det(), 7);
+}
+
+TEST(MatrixTest, DeterminantZero)
+{
+  Matrix<double> M({
+    {1,2},
+    {2,4}
+  });
+
+  EXPECT_EQ(M.det(), 0);
+}
+
+// ============================================================================
+// Utility
+// ============================================================================
+TEST(MatrixTest, EqualityOperator_FalseForDifferentSizes)
+{
+  Matrix<int> A = {{1,2},{3,4}};
+  Matrix<int> B = {{5,6,7}};
+
+  EXPECT_FALSE(A == B);
 }
