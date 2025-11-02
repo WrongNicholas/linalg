@@ -82,3 +82,68 @@ TEST(MatrixTest, ConstructsFromColumnsInitializer_EmptyOuterList_Throws)
 {
   EXPECT_THROW(Matrix<std::string> m({}), std::invalid_argument);
 }
+
+TEST(MatrixTest, MultiplicationOverload)
+{
+  // 2 x 3 matrix
+  Matrix<int> A = { 
+    {0,1}, 
+    {2,3},
+    {4,5}
+  };
+  // 0 2 4
+  // 1 3 5
+  
+  // 3 x 2 matrix
+  Matrix<int> B = {
+    {6, 7, 8},
+    {9,10,11},
+  };
+  // 6 9
+  // 7 10
+  // 8 11
+
+  Matrix<int> expected = {
+    {46, 67},
+    {64, 94}
+  };
+  // 46 64
+  // 67 94
+  
+  Matrix<int> actual = A*B;
+
+  ASSERT_TRUE(actual == expected);
+}
+
+TEST(MatrixTest, AdditionOverload)
+{
+  // 2 x 3 matrix
+  Matrix<int> A = { 
+    {0,1}, 
+    {2,3},
+    {4,5}
+  };
+  // 0 2 4
+  // 1 3 5
+  
+  // 2 x 3 matrix
+  Matrix<int> B = { 
+    {6, 7}, 
+    {8, 9},
+    {10,11}
+  };
+  // 6 8 10
+  // 7 9 11
+
+  Matrix<int> expected = {
+    {6, 8}, 
+    {10,12},
+    {14,16}
+  };
+  // 6 10 14
+  // 8 12 16
+
+  Matrix<int> actual = A+B;
+
+  ASSERT_TRUE(actual == expected);
+}

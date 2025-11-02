@@ -17,7 +17,6 @@
  * This class stores elements in a column-major order, meaning elements of the same
  * column are stored contiguously. The element at row `r` and column `c` is located
  * at index `c * rows() + r` in the underlying vector.
- *
  */
 template <typename T>
 class Matrix {
@@ -77,6 +76,51 @@ public:
   size_t rows() const noexcept { return _rows; }
   /** Returns the number of columns. */
   size_t cols() const noexcept { return _cols; }
+  /** Returns a mutable reference to the underlying data vector of the matrix. */
+  std::vector<T>& data() noexcept { return _data; }
+  /** Returns a const reference to the underlying data vector of the matrix. */
+  const std::vector<T>& data() const noexcept { return _data; }
+
+  // ==============================================================================
+  // Operator Overloads
+  // ==============================================================================
+  
+  /**
+   * @brief Multiplies this matrix by another matrix and returns the result.
+   *
+   * @param other The matrix to multiply with this matrix.
+   * @returns A new Matrix<T> containing the product of the two matrices.
+   *
+   * @throws std::invalid_argument If the matrices have incompatible sizes.
+   */
+  Matrix<T> operator*(const Matrix<T>& other) const;
+
+  /**
+   * @brief Adds this matrix to another matrix and returns the result.
+   *
+   * @param other The matrix to add to this matrix.
+   * @return A new Matrix<T> representing the element-wise sum of the two matrices.
+   *
+   * @throws std::invalid_argument If the matrices have different dimensions.
+   *
+   */
+  Matrix<T> operator+(const Matrix<T>& other) const;
+
+  /**
+   * @brief Checks whether this matrix is equal to another matrix.
+   *
+   * @param other The matrix to compare with this matrix.
+   * @returns True if both matrices are equal. False otherwise.
+   */
+  bool operator==(const Matrix<T>& other) const;
+
+  /**
+   * @brief Checks whether this matrix is not equal to another matrix.
+   *
+   * @param other The matrix to compare with this matrix.
+   * @returns True if both matrices are not equal. False otherwise.
+   */
+  bool operator!=(const Matrix<T>& other) const;
 
   // ==============================================================================
   // Element access
@@ -113,7 +157,7 @@ public:
    *
    * @throws std::out_of_range If @p r or @p c is outside the valid range.
    */
-  inline T& at(size_t r, size_t c);
+  T& at(size_t r, size_t c);
 
   /**
    * @brief Returns a const reference to the element at (r, c).
@@ -124,7 +168,7 @@ public:
    *
    * @throws std::out_of_range If @p r or @p c is outside the valid range.
    */
-  inline const T& at(size_t r, size_t c) const;
+  const T& at(size_t r, size_t c) const;
 
   // ==============================================================================
   // Column Access
@@ -202,6 +246,61 @@ Matrix<T>::Matrix(std::initializer_list<std::initializer_list<T>> initializer)
 }
 
 // Operator Overloads
+template <typename T>
+Matrix<T> Matrix<T>::operator*(const Matrix<T>& other) const
+{
+  if (cols() != other.rows()) throw std::invalid_argument("Matrix sizes are mismatched!");
+
+  // (AB)_ij = a_i1*b_1j + a_i2*b_2j + ... + a_in*b_nj
+  // i.e. (AB)_ij = summation from k = 0 -> n - 1 (A_ik * B_kj)
+  Matrix<T> product = Matrix<T>(rows(), other.cols());
+
+  for (size_t i = 0; i < rows(); ++i)
+  {
+    for (size_t j = 0; j < other.cols(); ++j)
+    {
+      T sum{};
+      for (size_t k = 0; k < cols(); ++k)
+      {
+        sum += at(i, k) * other.at(k, j);
+      }
+      product(i, j) = sum;
+    }
+  }
+
+  return product;
+}
+
+template <typename T>
+Matrix<T> Matrix<T>::operator+(const Matrix<T>& other) const
+{
+  if (rows() != other.rows() || cols() != other.cols()) throw std::invalid_argument("Matrix sizes are mismatched!");
+  Matrix<T> sum = Matrix<T>(rows(), cols());
+
+  auto sum_it = sum.data().begin();
+  auto lhs_it = data().cbegin();
+  auto lhs_end = data().cend();
+  auto other_it = other.data().cbegin();
+  for (; lhs_it != lhs_end; ++lhs_it, ++other_it, ++sum_it)
+  {
+    *sum_it = *lhs_it + *other_it;
+  }
+
+  return sum;
+}
+
+template <typename T>
+bool Matrix<T>::operator==(const Matrix<T>& other) const
+{
+  return data() == other.data();
+}
+
+template <typename T>
+bool Matrix<T>::operator!=(const Matrix<T>& other) const
+{
+  return data() != other.data();
+}
+
 template <typename T>
 T& Matrix<T>::operator()(size_t r, size_t c)
 {
