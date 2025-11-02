@@ -68,6 +68,16 @@ public:
    */
   Matrix(std::initializer_list<std::initializer_list<T>> initializer);
 
+  /**
+   * @brief Constructs a new matrix as a copy of another matrix.
+   *
+   * @param other The matrix to copy from.
+   *
+   * @note Performs a deep copy of all elements, preserving the original matrix dimensions.
+   *
+   */
+  Matrix(const Matrix<T>& other);
+
   // ==============================================================================
   // Accessors
   // ==============================================================================
@@ -94,6 +104,15 @@ public:
    * @throws std::invalid_argument If the matrices have incompatible sizes.
    */
   Matrix<T> operator*(const Matrix<T>& other) const;
+
+  /**
+   * @brief Multiplies this matrix by a scalar and returns the result.
+   *
+   * @param scalar The scalar to multiply with this matrix.
+   * @returns A new Matrix<T> containing the product of this matrix and the scalar.
+   *
+   */
+  Matrix<T> operator*(const T& scalar) const;
 
   /**
    * @brief Adds this matrix to another matrix and returns the result.
@@ -245,6 +264,12 @@ Matrix<T>::Matrix(std::initializer_list<std::initializer_list<T>> initializer)
   }
 }
 
+template <typename T>
+Matrix<T>::Matrix(const Matrix<T>& other) : _rows(other.rows()), _cols(other.cols()), _data(other.data())
+{
+
+}
+
 // Operator Overloads
 template <typename T>
 Matrix<T> Matrix<T>::operator*(const Matrix<T>& other) const
@@ -266,6 +291,19 @@ Matrix<T> Matrix<T>::operator*(const Matrix<T>& other) const
       }
       product(i, j) = sum;
     }
+  }
+  return product;
+}
+
+template <typename T>
+Matrix<T> Matrix<T>::operator*(const T& scalar) const
+{
+  Matrix<T> product = Matrix<T>(*this);
+  
+
+  for (auto it = product._data.begin(); it != product._data.end(); ++it)
+  {
+    (*it) *= scalar;
   }
 
   return product;

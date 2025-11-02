@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <lin_alg/Matrix.hpp>
+#include <stdexcept>
 
 TEST(MatrixTest, ConstructsWithDimensions_DefaultInitializesElements)
 {
@@ -115,6 +116,29 @@ TEST(MatrixTest, MultiplicationOverload)
   ASSERT_TRUE(actual == expected);
 }
 
+TEST(MatrixTest, MultiplicationOverload_MismatchedSizes_Throws)
+{
+  // 2 x 3 matrix
+  Matrix<int> A = { 
+    {0,1}, 
+    {2,3},
+    {4,5}
+  };
+  // 0 2 4
+  // 1 3 5
+  
+  // 3 x 2 matrix
+  Matrix<int> B = {
+    {6, 7},
+    {9,10},
+  };
+  // 6 9
+  // 7 10
+
+  ASSERT_THROW(Matrix<int> actual = A*B, std::invalid_argument);
+
+}
+
 TEST(MatrixTest, AdditionOverload)
 {
   // 2 x 3 matrix
@@ -145,5 +169,53 @@ TEST(MatrixTest, AdditionOverload)
 
   Matrix<int> actual = A+B;
 
+  ASSERT_TRUE(actual == expected);
+}
+
+TEST(MatrixTest, AdditionOverload_MismatchedSizes_Throws)
+{
+  // 2 x 3 matrix
+  Matrix<int> A = { 
+    {0,1}, 
+    {2,3},
+    {4,5}
+  };
+  // 0 2 4
+  // 1 3 5
+  
+  // 2 x 3 matrix
+  Matrix<int> B = { 
+    {6, 7}, 
+    {8, 9}
+  };
+  // 6 8
+  // 7 9
+
+  ASSERT_THROW(Matrix<int> actual = A+B, std::invalid_argument);
+}
+
+
+TEST(MatrixTest, MultiplicationOverload_Scalar)
+{
+  // 2 x 3 matrix
+  Matrix<int> A = { 
+    {0,1}, 
+    {2,3},
+    {4,5}
+  };
+  // 0 2 4
+  // 1 3 5
+
+  int scalar = 10;
+
+  Matrix<int> expected = {
+    {0,10}, 
+    {20,30},
+    {40,50}
+  };
+
+  Matrix<int> actual = A*scalar;
+
+  actual.print_row_major();
   ASSERT_TRUE(actual == expected);
 }
