@@ -373,6 +373,44 @@ TEST(MatrixTest, DeterminantZero)
   EXPECT_EQ(M.det(), 0);
 }
 
+TEST(MatrixTest, LinearlyIndependent)
+{
+  Matrix<double> m({
+    {1,-2, 1},
+    {0, 2,-8},
+    {5, 0,-5}
+  });
+
+  ASSERT_TRUE(m.linearly_independent());
+}
+
+TEST(MatrixTest, LinearlyDependent)
+{
+
+  Matrix<double> M({
+    {1,2},
+    {2,4}
+  });
+
+  ASSERT_FALSE(M.linearly_independent());
+}
+
+TEST(MatrixTest, Solution)
+{
+  Matrix<double> m({
+    {1,-2, 1},
+    {0, 2,-8},
+    {5, 0,-5},
+  });
+
+  std::vector<const double> b({0,8,10});
+
+  std::vector<double> actual = *m.solution(b);
+  std::vector<double> expected({1, 0, -1});
+
+  ASSERT_TRUE(actual == expected);
+}
+
 // ============================================================================
 // Utility
 // ============================================================================

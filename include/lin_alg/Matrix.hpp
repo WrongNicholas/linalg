@@ -5,10 +5,11 @@
 
 #include <algorithm>
 #include <initializer_list>
-#include <vector>
-#include <span>
 #include <iostream>
+#include <optional>
+#include <span>
 #include <stdexcept>
+#include <vector>
 
 /**
  * @brief A row-major matrix stored internally as a one-dimensional std::vector.
@@ -37,7 +38,7 @@ public:
    * @brief Represents the result of a Reduced Row Echelon Form operation.
    *
    * Contains both the transformed matrix and additional data needed to compute 
-   * a determinant.
+   * the determinant and determine linear independence/dependence.
    *
    * @tparam T Element type of the matrix.
    */
@@ -45,6 +46,9 @@ public:
     Matrix<T> m;
     size_t swaps = 0;
     T scale_prod = T{1};
+
+    std::vector<std::size_t> pivots;
+    size_t rank;
   };
 
   // ==============================================================================
@@ -91,35 +95,34 @@ public:
    * @throws std::invalid_argument If the matrix would have zero rows or zero columns,
    * or if the columns have different lengths.
    */
-  static Matrix<T> from_columns(std::initializer_list<std::initializer_list<T>> columns)
-  {
-    size_t cols = columns.size();
-    if (cols == 0) throw std::invalid_argument("Matrix must have at least one column.");
+  static Matrix<T> from_columns(std::initializer_list<std::initializer_list<T>> columns);
 
-    size_t rows = columns.begin()->size();
-    if (rows == 0) throw std::invalid_argument("Matrix columns cannot be empty.");
+  /**
+   * @brief Constructs a matrix with the given initializer list of columns.
+   *
+   * @param columns A list of columns, each represented as an std::vector.
+   *
+   * @throws std::invalid_argument If the matrix would have zero rows or columns,
+   * any column is empty, or if the columns have different lengths.
+   *
+   * @note This overload is useful when columns are already stored as std::vector
+   * objects rather than initializer lists.
+   */
+  static Matrix<T> from_columns(std::initializer_list<std::vector<T>> columns);
 
-    for (const auto& col : columns)
-    {
-      if (col.size() != rows) throw std::invalid_argument("All columns must have the same number of rows.");
-    }
-
-    Matrix<T> m(rows, cols);
-
-    size_t c = 0;
-    for (const auto& col : columns)
-    {
-      size_t r = 0;
-      for (const auto& element : col)
-      {
-        m.at(r, c) = element;
-        ++r;
-      }
-      ++c;
-    }
-
-    return m;
-  }
+  /**
+   * @brief Construct a matrix from a vector of column vectors.
+   *
+   * @param columns A vector containing the column vectors of the matrix.
+   * @return A Matrix<T> whose columns correspond to the provided vectors.
+   *
+   * @throws std::invalid_argument If the number of columns is zero, any column is empty,
+   * or if columns have different lengths.
+   *
+   * @note The elements of each column vector become contiguous in memory row-wise
+   * within the resulting matrix.
+   */
+  static Matrix<T> from_columns(std::vector<std::vector<T>>& columns);
 
   /**
    * @brief Constructs a new matrix as a copy of another matrix.
@@ -127,7 +130,6 @@ public:
    * @param other The matrix to copy from.
    *
    * @note Performs a deep copy of all elements, preserving the original matrix dimensions.
-   *
    */
   Matrix(const Matrix<T>& other) = default;
   Matrix(Matrix&&) noexcept = default;
@@ -221,13 +223,32 @@ public:
 
 
   // ==============================================================================
-  // Element access
+  // Element Access
   // ==============================================================================
 
   /**
+   * @brief Returns a mutable span representing a specific row.
+   * 
+   * @param i The zero-based index of the row to access.
+   * @return A std::span<T> referencing the elements of the specified row.
    *
+   * @note This operator provides convenient access via @c matrix[i][j] syntax,
+   * similar to a 2D array. The returned span is a direct view into the
+   * underlying storage. Modifying it affects the matrix.
    */
   std::span<T> operator[](int i);
+
+  /**
+   * @brief Returns a mutable span representing a specific row.
+   * 
+   * @param i The zero-based index of the row to access.
+   * @return A std::span<T> referencing the elements of the specified row.
+   *
+   * @note This operator provides convenient access via @c matrix[i][j] syntax,
+   * similar to a 2D array. The returned span is a direct view into the
+   * underlying storage. Modifying it affects the matrix.
+   */
+  std::span<const T> operator[](int i) const;
 
   /**
    * @brief Returns a reference to the element at (r, c).
@@ -381,6 +402,29 @@ public:
    */
   T det() const;
 
+  /**
+   * @brief Checks whether the matrix is linearly independent.
+   *
+   * @return True if there is a pivot in every column, false otherwise.
+   */
+  bool linearly_independent() const;
+
+  /**
+   * @brief Solves A x = b for x, where this matrix is A and b is a column vector.
+   *
+   * @param b A vector of size rows().
+   * @return An optional vector of coefficients x of size cols() if a solution exists.
+   *
+   * @note If the system has infinitely many solutions, this returns one solution
+   * with all free variables set to zero.
+   *
+   * @warning This operation can be fairly expensive! It is recommended to simply
+   * construct an augmented matrix and retrieve the last row.
+   *
+   * @throws std::invalid_argument If b.size != rows().
+   */
+  std::optional<std::vector<T>> solution(std::span<const T> b) const;
+
   // ==============================================================================
   // Printing Utility
   // ==============================================================================
@@ -389,30 +433,40 @@ public:
   void print() const;
 };
 
-// Constructors
+// ==============================================================================
+// Constructor Definitions
+// ==============================================================================
+
 template <typename T>
 Matrix<T>::Matrix(size_t rows, size_t cols) : _rows(rows), _cols(cols), _data(rows * cols) 
 {
-  if (rows == 0 || cols == 0) throw std::invalid_argument("Matrix dimensions cannot be zero.");
+  if (rows == 0 || cols == 0) 
+    throw std::invalid_argument("Matrix dimensions cannot be zero.");
 }
 
 template <typename T>
-Matrix<T>::Matrix(std::size_t rows, std::size_t cols, std::initializer_list<T> initializer) : _rows(rows), _cols(cols), _data(initializer) 
+Matrix<T>::Matrix(std::size_t rows, std::size_t cols, std::initializer_list<T> initializer) 
+  : _rows(rows), _cols(cols), _data(initializer) 
 { 
-  if (rows == 0 || cols == 0) throw std::invalid_argument("Matrix dimensions cannot be zero.");
-  if (initializer.size() != rows * cols) throw std::invalid_argument("Initializer list does not match matrix dimensions.");
+  if (rows == 0 || cols == 0) 
+    throw std::invalid_argument("Matrix dimensions cannot be zero.");
+  if (initializer.size() != rows * cols) 
+    throw std::invalid_argument("Initializer list does not match matrix dimensions.");
 }
 
 template <typename T>
 Matrix<T>::Matrix(std::initializer_list<std::initializer_list<T>> initializer)
 {
   _rows = initializer.size();
-  if (_rows == 0) throw std::invalid_argument("Matrix must have at least one row.");
+  if (_rows == 0) 
+    throw std::invalid_argument("Matrix must have at least one row.");
   _cols = initializer.begin()->size();
-  if (_cols == 0) throw std::invalid_argument("Matrix columns cannot be empty.");
+  if (_cols == 0) 
+    throw std::invalid_argument("Matrix columns cannot be empty.");
 
   for (const auto& row : initializer) {
-    if (row.size() != _cols) throw std::invalid_argument("All rows must have the same number of columns.");
+    if (row.size() != _cols) 
+      throw std::invalid_argument("All rows must have the same number of columns.");
   }
 
   _data.reserve(_rows * _cols);
@@ -421,11 +475,66 @@ Matrix<T>::Matrix(std::initializer_list<std::initializer_list<T>> initializer)
   }
 }
 
-// Operator Overloads
+template <typename T>
+Matrix<T> Matrix<T>::from_columns(std::initializer_list<std::initializer_list<T>> columns)
+{
+  std::vector<std::vector<T>> cols;
+  cols.reserve(columns.size());
+  for (const auto& col : columns) cols.emplace_back(col);
+  return Matrix<T>::from_columns(cols);
+}
+
+template <typename T>
+Matrix<T> Matrix<T>::from_columns(std::initializer_list<std::vector<T>> columns)
+{
+  std::vector<std::vector<T>> cols;
+  cols.reserve(columns.size());
+  for (const auto& col : columns) cols.emplace_back(col);
+  return Matrix<T>::from_columns(cols);
+}
+
+template <typename T>
+Matrix<T> Matrix<T>::from_columns(std::vector<std::vector<T>>& columns) {
+  size_t cols = columns.size();
+  if (cols == 0) 
+    throw std::invalid_argument("Matrix must have at least one column.");
+
+  size_t rows = columns.begin()->size();
+  if (rows == 0) 
+    throw std::invalid_argument("Matrix columns cannot be empty.");
+
+  for (const auto& col : columns)
+  {
+    if (col.size() != rows) 
+      throw std::invalid_argument("All columns must have the same number of rows.");
+  }
+
+  Matrix<T> m(rows, cols);
+
+  size_t c = 0;
+  for (const auto& col : columns)
+  {
+    size_t r = 0;
+    for (const auto& element : col)
+    {
+      m.at(r, c) = element;
+      ++r;
+    }
+    ++c;
+  }
+
+  return m;
+}
+
+// ==============================================================================
+// Arithmetic Definitions
+// ==============================================================================
+
 template <typename T>
 Matrix<T> Matrix<T>::operator*(const Matrix<T>& other) const
 {
-  if (cols() != other.rows()) throw std::invalid_argument("Matrix sizes are mismatched!");
+  if (cols() != other.rows()) 
+    throw std::invalid_argument("Matrix sizes are mismatched!");
 
   // (AB)_ij = a_i1*b_1j + a_i2*b_2j + ... + a_in*b_nj
   // i.e. (AB)_ij = summation from k = 0 -> n - 1 (A_ik * B_kj)
@@ -445,6 +554,7 @@ Matrix<T> Matrix<T>::operator*(const Matrix<T>& other) const
   }
   return product;
 }
+
 template <typename T>
 Matrix<T> Matrix<T>::operator*(const T& scalar) const
 {
@@ -469,7 +579,8 @@ Matrix<T>& Matrix<T>::operator*=(const T& scalar)
 template <typename T>
 Matrix<T> Matrix<T>::operator+(const Matrix<T>& other) const
 {
-  if (rows() != other.rows() || cols() != other.cols()) throw std::invalid_argument("Matrix sizes are mismatched!");
+  if (rows() != other.rows() || cols() != other.cols()) 
+    throw std::invalid_argument("Matrix sizes are mismatched!");
   Matrix<T> sum = Matrix<T>(rows(), cols());
 
   auto sum_it = sum.data().begin();
@@ -487,12 +598,17 @@ Matrix<T> Matrix<T>::operator+(const Matrix<T>& other) const
 template <typename T>
 Matrix<T>& Matrix<T>::operator+=(const Matrix<T>& other)
 {
-  if (_rows != other._rows || _cols != other._cols) throw std::invalid_argument("Matrix sizes are mismatched!");
+  if (_rows != other._rows || _cols != other._cols) 
+    throw std::invalid_argument("Matrix sizes are mismatched!");
 
   for (size_t idx = 0; idx < _data.size(); ++idx)
     _data[idx] += other._data[idx];
   return *this;
 }
+
+// ==============================================================================
+// Operator Overload Definitions
+// ==============================================================================
 
 template <typename T>
 bool Matrix<T>::operator==(const Matrix<T>& other) const
@@ -506,9 +622,19 @@ bool Matrix<T>::operator!=(const Matrix<T>& other) const
   return !(*this == *other);
 }
 
-// Helpers
+// ==============================================================================
+// Element Access Definitions
+// ==============================================================================
+
 template <typename T>
 std::span<T> Matrix<T>::operator[](int i)
+{
+  return row_at(i);
+}
+
+
+template <typename T>
+std::span<const T> Matrix<T>::operator[](int i) const
 {
   return row_at(i);
 }
@@ -516,36 +642,48 @@ std::span<T> Matrix<T>::operator[](int i)
 template <typename T>
 inline T& Matrix<T>::at(size_t r, size_t c)
 {
-  if (r >= _rows  || c >= _cols ) throw std::out_of_range("Requested position outside of matrix dimensions.");
+  if (r >= _rows  || c >= _cols ) 
+    throw std::out_of_range("Requested position outside of matrix dimensions.");
   return _data[r * _cols + c];
 }
 
 template <typename T>
 inline const T& Matrix<T>::at(size_t r, size_t c) const
 {
-  if (r >= _rows  || c >= _cols ) throw std::out_of_range("Requested position outside of matrix dimensions.");
+  if (r >= _rows  || c >= _cols ) 
+    throw std::out_of_range("Requested position outside of matrix dimensions.");
   return _data[r * _cols + c];
 }
+
+// ==============================================================================
+// Row Access Definitions
+// ==============================================================================
 
 template <typename T>
 std::span<T> Matrix<T>::row_at(size_t r)
 {
-  if (r >= _rows) throw std::out_of_range("Requested position outside of matrix dimensions.");
+  if (r >= _rows) 
+    throw std::out_of_range("Requested position outside of matrix dimensions.");
   return std::span(&_data[r * _cols], _cols);
 }
 
 template <typename T>
 std::span<const T> Matrix<T>::row_at(size_t r) const
 {
-  if (r >= _rows) throw std::out_of_range("Requested position outside of matrix dimensions.");
+  if (r >= _rows) 
+    throw std::out_of_range("Requested position outside of matrix dimensions.");
   return std::span(&_data[r * _cols], _cols);
 }
 
-// Row Operations
+// ==============================================================================
+// Row Operation Definitions
+// ==============================================================================
+
 template <typename T>
 void Matrix<T>::swap_rows(size_t r1, size_t r2)
 {
-  if (r1 >= rows() || r2 >= rows()) throw std::out_of_range("Requested position outside of matrix dimensions.");
+  if (r1 >= rows() || r2 >= rows()) 
+    throw std::out_of_range("Requested position outside of matrix dimensions.");
 
   auto row1_it = data().begin() + r1 * cols();
   auto row1_end = data().begin() + r1 * cols() + cols();
@@ -558,7 +696,8 @@ void Matrix<T>::swap_rows(size_t r1, size_t r2)
 template <typename T>
 void Matrix<T>::scale_row(size_t r, const T& scalar)
 {
-  if (r >= rows()) throw std::out_of_range("Requested position outside of matrix dimensions.");
+  if (r >= rows()) 
+    throw std::out_of_range("Requested position outside of matrix dimensions.");
 
   std::for_each(
       data().begin() + r * cols(),
@@ -570,7 +709,8 @@ void Matrix<T>::scale_row(size_t r, const T& scalar)
 template <typename T>
 void Matrix<T>::add_row(size_t r1, size_t r2, const T& scalar)
 {
-  if (r1 >= rows() || r2 >= rows()) throw std::out_of_range("Requested position outside of matrix dimensions.");
+  if (r1 >= rows() || r2 >= rows()) 
+    throw std::out_of_range("Requested position outside of matrix dimensions.");
 
   auto row1_it = data().begin() + r1 * cols();
   auto row1_end = data().begin() + r1 * cols() + cols();
@@ -586,7 +726,10 @@ void Matrix<T>::add_row(size_t r1, size_t r2, const T& scalar)
     });
 }
 
-// Linear Algebra Utility
+// ==============================================================================
+// Linear Algebra Operations Definitions
+// ==============================================================================
+
 template <typename T>
 Matrix<T>::RrefResult Matrix<T>::rref_stats() const
 {
@@ -594,6 +737,7 @@ Matrix<T>::RrefResult Matrix<T>::rref_stats() const
   Matrix<T> m(*this);
   size_t swaps = 0;
   T scale_prod = T{1};
+  std::vector<std::size_t> pivot_cols;
 
   size_t c = 0;
   
@@ -627,6 +771,8 @@ Matrix<T>::RrefResult Matrix<T>::rref_stats() const
       scale_prod *= pivot_val;
     }
 
+    pivot_cols.push_back(c);
+
     // Eliminate column in other rows
     for (size_t row_idx = 0; row_idx < m.rows(); ++row_idx)
     {
@@ -638,7 +784,16 @@ Matrix<T>::RrefResult Matrix<T>::rref_stats() const
     // Now move on to next column
     ++c;
   }
-  return RrefResult{std::move(m), swaps, scale_prod};
+
+  const size_t rank = pivot_cols.size();
+
+  return RrefResult{
+    std::move(m), 
+    swaps, 
+    scale_prod, 
+    std::move(pivot_cols), 
+    rank
+  };
 }
 
 template <typename T>
@@ -650,7 +805,8 @@ Matrix<T> Matrix<T>::rref() const
 template <typename T>
 T Matrix<T>::det() const
 {
-  if (rows() != cols()) throw std::invalid_argument("Finding a determinant requires a square matrix.");
+  if (rows() != cols()) 
+    throw std::invalid_argument("Finding a determinant requires a square matrix.");
   if (rows() == 1) return data()[0];
   
   // RrefResult represents the collected result of performing an rref operation
@@ -670,6 +826,61 @@ T Matrix<T>::det() const
 
   return det;
 }
+
+template <typename T>
+bool Matrix<T>::linearly_independent() const
+{
+  return this->cols() == rref_stats().rank;
+}
+
+template <typename T>
+std::optional<std::vector<T>> Matrix<T>::solution(std::span<const T> b) const
+{
+  if (b.size() != rows())
+    throw std::invalid_argument("Vector must have the same number of rows as the matrix!");
+
+  Matrix<T> augmented(_rows, _cols + 1);
+
+  for (size_t r = 0; r < rows(); ++r)
+    for (size_t c = 0; c < _cols; ++c) 
+      augmented[r][c] = this->at(r,c);
+
+  for (size_t r = 0; r < _rows; ++r)
+    augmented[r][_cols] = b[r];
+
+  auto res = augmented.rref_stats();
+  
+  // Check for inconsistency
+  for (size_t r = 0; r < res.m.rows(); ++r)
+  {
+    bool all_zeroes = true;
+    for (size_t c = 0; c < cols(); ++c)
+    {
+      if (res.m[r][c] != T{})
+      {
+        all_zeroes = false;
+        break;
+      }
+    }
+    if (all_zeroes && res.m[r][cols()] != T{})
+      return std::nullopt;
+  }
+
+  // In this scope, we know we have at least one solution, so pick one!
+  std::vector<T> solution_vector(cols(), T{});
+
+  for (size_t idx = 0; idx < res.pivots.size(); ++idx)
+  {
+    size_t pivot_col = res.pivots[idx];
+    solution_vector[pivot_col] = res.m[idx][cols()];
+  }
+
+  return solution_vector;
+}
+
+// ==============================================================================
+// Printing Utility Definitions
+// ==============================================================================
 
 template <typename T>
 void Matrix<T>::print() const

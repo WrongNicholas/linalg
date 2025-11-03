@@ -14,6 +14,9 @@ target_include_directories(lin_alg INTERFACE
 enable_testing()
 add_subdirectory(tests)
 
+add_executable(example src/example.cpp)
+target_link_libraries(example PRIVATE lin_alg)
+
 find_package(Doxygen)
 if (DOXYGEN_FOUND)
     set(DOXYGEN_IN ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile)
