@@ -28,7 +28,7 @@ int main()
   std::cout << "det(A) = " << determinant << "\n\n";
 
   // Define vector b
-  std::vector<const double> b = {0, 8, 10};
+  std::vector<double> b = {0, 8, 10};
   std::cout << "b = {0, 8, 10}\n\n";
 
   // Solve Ax = b

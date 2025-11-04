@@ -411,6 +411,44 @@ TEST(MatrixTest, Solution)
   ASSERT_TRUE(actual == expected);
 }
 
+TEST(MatrixTest, Solution_MismatchedSizes_Throws)
+{
+  Matrix<double> m({
+    {1,-2, 1},
+    {0, 2,-8},
+    {5, 0,-5},
+  });
+
+  std::vector<const double> b({0,8});
+
+  EXPECT_THROW(*m.solution(b), std::invalid_argument);
+}
+
+TEST(MatrixTest, Solution_BIG)
+{
+  Matrix<double> m({
+    {2, 1, 0, 0, 0, 0, 0, 0, 0, 0},
+    {1, 3, 1, 0, 0, 0, 0, 0, 0, 0},
+    {0, 1, 3, 1, 0, 0, 0, 0, 0, 0},
+    {0, 0, 1, 3, 1, 0, 0, 0, 0, 0},
+    {0, 0, 0, 1, 3, 1, 0, 0, 0, 0},
+    {0, 0, 0, 0, 1, 3, 1, 0, 0, 0},
+    {0, 0, 0, 0, 0, 1, 3, 1, 0, 0},
+    {0, 0, 0, 0, 0, 0, 1, 3, 1, 0},
+    {0, 0, 0, 0, 0, 0, 0, 1, 3, 1},
+    {0, 0, 0, 0, 0, 0, 0, 0, 1, 2},
+  });
+
+  std::vector<double> b({0,-2,3,-4,5,-6,7,-8,9,-11});
+
+  std::vector<double> actual = *m.solution(b);
+  std::vector<double> expected({1,-2,3,-4,5,-6,7,-8,9,-10});
+
+  // REALLY NEED TO WRITE RATIONAL CLASS
+  for (size_t idx = 0; idx < 10; ++idx)
+    ASSERT_NEAR(actual[idx], expected[idx], 1e-12);
+}
+
 // ============================================================================
 // Utility
 // ============================================================================

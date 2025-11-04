@@ -360,7 +360,7 @@ public:
    * as division of integral types such as @c int may yield truncated results.
    *  
    */
-  RrefResult rref_stats() const;
+  RrefResult rref_stats(std::optional<std::span<T>> opt_rhs = std::nullopt) const;
 
   /**
    * @brief Computes the Reduced Row Echelon Form (RREF) of the matrix.
@@ -731,16 +731,20 @@ void Matrix<T>::add_row(size_t r1, size_t r2, const T& scalar)
 // ==============================================================================
 
 template <typename T>
-Matrix<T>::RrefResult Matrix<T>::rref_stats() const
+Matrix<T>::RrefResult Matrix<T>::rref_stats(std::optional<std::span<T>> opt_rhs) const
 {
-  // NOTE: POSSIBLY ADD STATIC_ASSERT TO FORCE FLOATINZG POINT
+  // NOTE: POSSIBLY ADD STATIC_ASSERT TO FORCE FLOATING POINT
   Matrix<T> m(*this);
   size_t swaps = 0;
   T scale_prod = T{1};
   std::vector<std::size_t> pivot_cols;
 
-  size_t c = 0;
+  if (opt_rhs && opt_rhs->size() != m.rows())
+    throw std::invalid_argument("rhs size must match matrix rows!");
   
+  auto rhs_at = [&](size_t i) -> T& { return (*opt_rhs)[i]; };
+
+  size_t c = 0;
   for (size_t r = 0; r < m.rows(); ++r)
   {
     if (c >= m.cols()) break;
@@ -763,12 +767,17 @@ Matrix<T>::RrefResult Matrix<T>::rref_stats() const
     { 
       m.swap_rows(i, r);
       ++swaps;
+
+      // Swap rhs 'rows' (if exists)
+      if (opt_rhs) std::swap(rhs_at(i), rhs_at(r));
     }
 
     const T pivot_val = m.at(r, c);
     if (pivot_val != T{1}) {
       m.scale_row(r, T{1} / pivot_val);
       scale_prod *= pivot_val;
+
+      if (opt_rhs) rhs_at(r) *= T{1} / pivot_val;
     }
 
     pivot_cols.push_back(c);
@@ -778,7 +787,11 @@ Matrix<T>::RrefResult Matrix<T>::rref_stats() const
     {
       if (row_idx == r) continue;
       const T f = m.at(row_idx, c);
-      if (f != T{}) m.add_row(r, row_idx, -f);
+      if (f != T{})
+      {
+        m.add_row(r, row_idx, -f);
+        if (opt_rhs) rhs_at(row_idx) += -f * rhs_at(r);
+      }
     }
 
     // Now move on to next column
@@ -839,30 +852,21 @@ std::optional<std::vector<T>> Matrix<T>::solution(std::span<const T> b) const
   if (b.size() != rows())
     throw std::invalid_argument("Vector must have the same number of rows as the matrix!");
 
-  Matrix<T> augmented(_rows, _cols + 1);
-
-  for (size_t r = 0; r < rows(); ++r)
-    for (size_t c = 0; c < _cols; ++c) 
-      augmented[r][c] = this->at(r,c);
-
-  for (size_t r = 0; r < _rows; ++r)
-    augmented[r][_cols] = b[r];
-
-  auto res = augmented.rref_stats();
+  // Makes a copy of b because rref_stats is non-const operation
+  std::vector<T> rhs(b.begin(), b.end());
+  auto rhs_span = std::span<T>(rhs);
+  auto res = rref_stats(rhs_span);
   
   // Check for inconsistency
-  for (size_t r = 0; r < res.m.rows(); ++r)
-  {
+  for (size_t r = 0; r < res.m.rows(); ++r) {
     bool all_zeroes = true;
-    for (size_t c = 0; c < cols(); ++c)
-    {
-      if (res.m[r][c] != T{})
-      {
+    for (size_t c = 0; c < cols(); ++c) {
+      if (res.m[r][c] != T{}) {
         all_zeroes = false;
         break;
       }
     }
-    if (all_zeroes && res.m[r][cols()] != T{})
+    if (all_zeroes && rhs[r] != T{})
       return std::nullopt;
   }
 
@@ -872,7 +876,7 @@ std::optional<std::vector<T>> Matrix<T>::solution(std::span<const T> b) const
   for (size_t idx = 0; idx < res.pivots.size(); ++idx)
   {
     size_t pivot_col = res.pivots[idx];
-    solution_vector[pivot_col] = res.m[idx][cols()];
+    solution_vector[pivot_col] = rhs[idx];
   }
 
   return solution_vector;
