@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <lin_alg/Matrix.hpp>
+#include <lin_alg/Rational.hpp>
 #include <stdexcept>
 
 // ==============================================================================
@@ -458,4 +459,14 @@ TEST(MatrixTest, EqualityOperator_FalseForDifferentSizes)
   Matrix<int> B = {{5,6,7}};
 
   EXPECT_FALSE(A == B);
+}
+
+// ============================================================================
+// Rational Testing
+// ============================================================================
+TEST(MatrixTest, Rational)
+{
+  Matrix<Rational> A{{Rational(1,1), Rational(1,2)}, {Rational(2,1), Rational(2,2)}};
+
+  EXPECT_TRUE(A.at(0,0) == Rational(1,1));
 }
