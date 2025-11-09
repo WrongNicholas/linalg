@@ -2,6 +2,7 @@
 #include <vector>
 #include <optional>
 #include <lin_alg/Matrix.hpp>
+#include <lin_alg/Rational.hpp>
 
 int main()
 {
@@ -56,6 +57,10 @@ int main()
   const auto C = A * B;
   std::cout << "A * B = C = \n";
   C.print();
+
+  // Define a rational number 1 / 2
+  Rational r(1,2);
+  r.print();
 
   return 0;
 }
