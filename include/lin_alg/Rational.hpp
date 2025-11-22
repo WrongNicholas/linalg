@@ -10,7 +10,26 @@ class Rational{
 private:
   int _numerator;
   int _denominator;
+
+  /**
+   * @brief Reduces the Rational to its simplest form.
+   */
+  void reduce()
+  {
+    int a = (_numerator > _denominator) ? _numerator : _denominator;
+    int b = (_numerator > _denominator) ? _denominator : _numerator;
+
+    while (b != 0)
+    {
+      int r = a % b;
+      a = b;
+      b = r;
+    }
+    _numerator /= a;
+    _denominator /= a;
+  }
 public:
+
   // ==============================================================================
   // Constructors
   // ==============================================================================
@@ -27,6 +46,8 @@ public:
   {
     if (denominator == 0)
       throw std::invalid_argument("Denominator cannot be zero!");
+
+    reduce();
   }
 
   /**
@@ -35,11 +56,20 @@ public:
    *
    * @param value Numerator
    */
-  Rational(int value) : _numerator(value), _denominator(1) { }
+  Rational(int value) : _numerator(value), _denominator(1) 
+  {
+    reduce();
+  }
+
+  Rational() : _numerator(0), _denominator(1) { }
 
   // ==============================================================================
   // Arithmetic
   // ==============================================================================
+  Rational operator-() const {
+    return Rational(_numerator, _denominator);
+  }
+
   /**
    * @brief Multiplies this rational by another rational and returns the result.
    *
@@ -178,6 +208,7 @@ public:
   
   /** Prints the rational to the standard output stream. */
   void print() const;
+
 };
 
 // ==============================================================================
@@ -197,12 +228,14 @@ inline Rational& Rational::operator*=(const Rational& other)
 {
   _numerator *= other._numerator;
   _denominator *= other._denominator;
+  reduce();
   return *this;
 }
 
 inline Rational& Rational::operator*=(const int other)
 {
   _numerator *= other;
+  reduce();
   return *this;
 }
 
@@ -230,6 +263,7 @@ inline Rational& Rational::operator/=(const Rational& other)
   _numerator *= other._denominator;
   _denominator *= other._numerator;
 
+  reduce();
   return *this;
 }
 
@@ -239,6 +273,7 @@ inline Rational& Rational::operator/=(const int other)
     throw std::invalid_argument("Cannot divide by zero!");
 
   _denominator *= other;
+  reduce();
   return *this;
 }
 
@@ -256,12 +291,14 @@ inline Rational& Rational::operator+=(const Rational& other)
 {
   _numerator = _numerator * other._denominator + other._numerator * _denominator;
   _denominator = _denominator * other._denominator;
+  reduce();
   return *this;
 }
 
 inline Rational& Rational::operator+=(const int other)
 {
   _numerator += other * _denominator;
+  reduce();
   return *this;
 }
 
@@ -308,5 +345,12 @@ inline const int Rational::denominator() const
 inline void Rational::print() const
 {
   std::cout << numerator() << " / " << denominator() << std::endl;
+}
+
+inline std::ostream& operator<<(std::ostream& os, const Rational& r)
+{
+  if (r.denominator() == 1)
+    return os << r.numerator();
+  return os << r.numerator() << "/" << r.denominator();
 }
 #endif
